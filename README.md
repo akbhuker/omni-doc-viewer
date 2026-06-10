@@ -1,6 +1,14 @@
 # omni-doc-viewer
 
+[![npm version](https://img.shields.io/npm/v/omni-doc-viewer.svg)](https://www.npmjs.com/package/omni-doc-viewer)
+[![npm downloads](https://img.shields.io/npm/dm/omni-doc-viewer.svg)](https://www.npmjs.com/package/omni-doc-viewer)
+[![minzipped size](https://img.shields.io/bundlephobia/minzip/omni-doc-viewer)](https://bundlephobia.com/package/omni-doc-viewer)
+[![types included](https://img.shields.io/npm/types/omni-doc-viewer.svg)](https://www.npmjs.com/package/omni-doc-viewer)
+[![license: MIT](https://img.shields.io/npm/l/omni-doc-viewer.svg)](./LICENSE)
+
 **One `<DocViewer>` for PDF, Word, Excel & PowerPoint. 100% client-side — no server, no Microsoft iframe, no public-URL requirement, no API keys.**
+
+**[▶ Live demo](https://akbhuker.github.io/omni-doc-viewer/)** — drop a file, or try a sample. Works offline.
 
 Most "free" document viewers force a bad tradeoff: they either embed Microsoft's
 Office Online viewer in an iframe (needs the internet **and** a public file URL —
