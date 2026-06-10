@@ -1,0 +1,256 @@
+:root {
+  --ink: #1c2024;
+  --muted: #6a7079;
+  --faint: #9aa0a8;
+  --line: #e2e5ea;
+  --line-strong: #cfd3da;
+  --bg: #ffffff;
+  --panel: #fbfcfd;
+  --accent: #2257d6;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ---------- Header ---------- */
+header {
+  border-bottom: 1px solid var(--line);
+  padding: 22px 0 20px;
+}
+
+.kicker {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  margin: 6px 0 10px;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.lede {
+  margin: 0;
+  max-width: 620px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.facts {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.facts li {
+  position: relative;
+  padding-left: 14px;
+}
+
+.facts li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+/* ---------- Toolbar ---------- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 0 14px;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--faint);
+  margin-right: 4px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 7px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+}
+
+.btn.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #f3f6fe;
+}
+
+.btn.file {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.meta strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------- Viewer ---------- */
+.stage {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.dropzone {
+  position: relative;
+  min-height: min(68vh, 540px);
+  padding: 12px;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.dropzone.dragging {
+  background: #f3f6fe;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--faint);
+  text-align: center;
+  padding: 24px;
+}
+
+.empty .big {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.viewer {
+  width: 100%;
+  height: 100%;
+}
+
+.viewer .odv-pdf canvas,
+.viewer .odv-docx {
+  max-width: 100% !important;
+}
+
+.viewer .odv-xlsx {
+  max-height: min(68vh, 540px);
+}
+
+/* ---------- Note + footer ---------- */
+.note {
+  margin: 18px 2px 36px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 760px;
+}
+
+.note code {
+  background: #f1f3f6;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12.5px;
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding: 22px 0 48px;
+  color: var(--faint);
+  font-size: 13px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+}
+
+footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 560px) {
+  body {
+    font-size: 14px;
+  }
+  h1 {
+    font-size: 21px;
+  }
+  .dropzone {
+    min-height: 62vh;
+    padding: 8px;
+  }
+  .label {
+    width: 100%;
+    margin-bottom: 2px;
+  }
+}

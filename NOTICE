@@ -1,0 +1,18 @@
+omni-doc-viewer
+Copyright (c) 2026 omni-doc-viewer contributors
+
+This product bundles / depends on the following third-party rendering engines,
+each under its own license. omni-doc-viewer itself is MIT-licensed; it wraps
+these engines behind a unified API and does not modify them.
+
+- pdfjs-dist (Mozilla pdf.js) — Apache License 2.0
+    https://github.com/mozilla/pdf.js
+- docx-preview — Apache License 2.0
+    https://github.com/VolodymyrBaydalka/docxjs
+- xlsx (SheetJS Community Edition) — Apache License 2.0
+    https://github.com/SheetJS/sheetjs
+- pptx-preview — ISC License
+    https://www.npmjs.com/package/pptx-preview
+
+Full license texts are available in each package's distribution under
+node_modules/<package>/.

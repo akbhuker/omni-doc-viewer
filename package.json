@@ -1,0 +1,112 @@
+{
+  "name": "omni-doc-viewer",
+  "version": "0.1.0",
+  "description": "One <DocViewer> for PDF, Word, Excel & PowerPoint. 100% client-side — no server, no Microsoft iframe, no public-URL requirement, no API keys.",
+  "license": "MIT",
+  "author": "akbhuker <akbhuker49@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akbhuker/omni-doc-viewer.git"
+  },
+  "homepage": "https://akbhuker.github.io/omni-doc-viewer/",
+  "bugs": {
+    "url": "https://github.com/akbhuker/omni-doc-viewer/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "keywords": [
+    "pdf",
+    "docx",
+    "xlsx",
+    "pptx",
+    "document",
+    "viewer",
+    "office",
+    "preview",
+    "react",
+    "client-side",
+    "offline"
+  ],
+  "files": [
+    "dist",
+    "NOTICE",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "dev:demo": "pnpm --filter omni-doc-viewer-demo dev",
+    "samples": "node scripts/make-samples.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test",
+    "commitlint": "commitlint --edit",
+    "prepare": "husky || true",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "docx-preview": "^0.3.5",
+    "pdfjs-dist": "^4.7.76",
+    "pptx-preview": "^1.0.7",
+    "xlsx": "^0.18.5"
+  },
+  "peerDependencies": {
+    "react": ">=17",
+    "react-dom": ">=17"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.13.0",
+    "@typescript-eslint/parser": "^8.13.0",
+    "eslint": "^8.57.1",
+    "husky": "^9.1.7",
+    "jszip": "^3.10.1",
+    "pptxgenjs": "^4.0.1",
+    "puppeteer-core": "^25.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

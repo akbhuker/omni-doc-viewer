@@ -1,0 +1,72 @@
+name: Bug report
+description: Something doesn't render or behaves incorrectly
+title: 'fix: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the report! Please fill this out so it can be reproduced.
+  - type: input
+    id: version
+    attributes:
+      label: omni-doc-viewer version
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: format
+    attributes:
+      label: Document format
+      options:
+        - PDF
+        - DOCX (Word)
+        - XLSX/XLS (Excel)
+        - PPTX (PowerPoint)
+        - Detection (wrong/failed type)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: entry
+    attributes:
+      label: Which entry point?
+      options:
+        - 'React: omni-doc-viewer/react (<DocViewer>)'
+        - 'Core: omni-doc-viewer (renderDocument)'
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: Browser + version, framework + bundler (Vite/webpack/Next.js), Node version
+      placeholder: e.g. Chrome 124, Next.js 14 (App Router), Node 20
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A minimal repro (CodeSandbox/StackBlitz link is ideal). What source did you pass (URL/File/Blob)?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors / stack trace
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: This is NOT a legacy binary `.doc`/`.ppt` file (those are out of scope by design).
+          required: true
+        - label: I searched existing issues and this isn't a duplicate.
+          required: true

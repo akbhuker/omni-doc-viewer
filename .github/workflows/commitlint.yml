@@ -1,0 +1,39 @@
+name: Commit lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # On PRs, lint every commit in the PR range.
+      - name: Lint PR commits
+        if: github.event_name == 'pull_request'
+        run: >-
+          pnpm exec commitlint
+          --from ${{ github.event.pull_request.base.sha }}
+          --to ${{ github.event.pull_request.head.sha }}
+          --verbose
+
+      # On direct pushes to main, lint the latest commit.
+      - name: Lint last commit
+        if: github.event_name == 'push'
+        run: pnpm exec commitlint --from HEAD~1 --to HEAD --verbose
