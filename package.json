@@ -1,6 +1,6 @@
 {
   "name": "omni-doc-viewer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One <DocViewer> for PDF, Word, Excel & PowerPoint. 100% client-side — no server, no Microsoft iframe, no public-URL requirement, no API keys.",
   "license": "MIT",
   "author": "akbhuker <akbhuker49@gmail.com>",
