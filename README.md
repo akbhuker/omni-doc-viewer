@@ -88,7 +88,8 @@ Works with Vue, Svelte, Angular, or vanilla JS — give it an element and a sour
 - **PPTX fidelity caveats:** `pptx-preview` reproduces text, lists, basic shapes
   and images well, but **not** animations, transitions, 3D, charts, SmartArt,
   OLE objects, or speaker notes. Treat PPTX as "readable preview", not
-  pixel-perfect PowerPoint.
+  pixel-perfect PowerPoint. Images include EMF/WMF metafiles (rasterized to PNG
+  for the browser) and layout-inherited picture placeholders.
 
 ---
 
@@ -166,12 +167,38 @@ const DocViewer = dynamic(
 | `pdf` | `{ scale?, workerSrc? }` | canvas scale (default 1.5), worker URL |
 | `pptx` | `{ width?, height? }` | slide size (defaults to container width, 16:9) |
 
-`RenderResult` = `{ type, meta: { type, pageCount? }, destroy() }`.
+`RenderResult` = `{ type, meta: { type, pageCount? }, pages?: HTMLElement[], destroy() }`.
+`pages` is the array of page elements (PDF pages, PPTX slides, DOCX sections) the
+viewer uses to drive navigation.
 
 ### `<DocViewer />` props
 
-All of the above (minus `container`), plus `loading`, `errorFallback(error)`,
-`onLoad(meta)`, `className`, `style`.
+All `renderDocument` options (minus `container`), plus:
+
+| prop | type | notes |
+|---|---|---|
+| `loading` | `ReactNode` | shown while loading |
+| `errorFallback` | `(error: Error) => ReactNode` | custom error UI |
+| `onLoad` | `(meta: RenderMeta) => void` | fired once rendered |
+| `className` / `style` | — | applied to the root |
+| `pagination` | `boolean` | **opt-in** page navigation: a toolbar with prev/next, jump-to-page, zoom, and a page-by-page ⇄ continuous toggle, inside a scrollable (vertical **and** horizontal) viewport. Default `false` |
+| `initialViewMode` | `'paged' \| 'continuous'` | layout when `pagination` is on. Default `'paged'` (one page at a time) |
+| `height` | `number \| string` | viewport height when `pagination` is on. Number = px. Default `'80vh'` |
+| `toolbar` | `boolean` | show the toolbar. Defaults to the value of `pagination` |
+| `onPageChange` | `(page: number, total: number) => void` | fired when the current page changes (1-based) |
+
+The toolbar is fully responsive — it adapts to the **viewer's own width** (via
+container queries), so it stays usable in a narrow column or on a phone.
+
+```tsx
+<DocViewer
+  source={file}
+  pagination                 // toolbar + page-by-page navigation
+  initialViewMode="paged"    // or "continuous" for a scrolling stack
+  height="80vh"
+  onPageChange={(page, total) => console.log(`${page} / ${total}`)}
+/>
+```
 
 ---
 

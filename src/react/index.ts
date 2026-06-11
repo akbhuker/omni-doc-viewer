@@ -1,4 +1,4 @@
-export { DocViewer, type DocViewerProps } from './DocViewer'
+export { DocViewer, type DocViewerProps, type ViewMode } from './DocViewer'
 export {
   type DocType,
   type DocSource,

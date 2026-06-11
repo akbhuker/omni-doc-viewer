@@ -81,6 +81,8 @@
   },
   "dependencies": {
     "docx-preview": "^0.3.5",
+    "emf-converter": "^1.1.7",
+    "jszip": "^3.10.1",
     "pdfjs-dist": "^4.7.76",
     "pptx-preview": "^1.0.7",
     "xlsx": "^0.18.5"

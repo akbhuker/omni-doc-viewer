@@ -56,6 +56,8 @@ export const render: Renderer = async ({ container, bytes, options, signal }) =>
 
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
 
+  const pages: HTMLElement[] = []
+
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     if (signal?.aborted) break
     const page = await pdf.getPage(pageNum)
@@ -74,6 +76,7 @@ export const render: Renderer = async ({ container, bytes, options, signal }) =>
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not get a 2D canvas context for PDF rendering.')
     wrapper.appendChild(canvas)
+    pages.push(canvas)
 
     await page.render({
       canvasContext: ctx,
@@ -86,6 +89,7 @@ export const render: Renderer = async ({ container, bytes, options, signal }) =>
   return {
     type: 'pdf',
     meta: { type: 'pdf', pageCount: pdf.numPages },
+    pages,
     destroy() {
       try {
         pdf.destroy()

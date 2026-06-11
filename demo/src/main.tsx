@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useState } from 'react'
+import { StrictMode, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { DocViewer, type DocType, type RenderMeta } from 'omni-doc-viewer/react'
 import './styles.css'
@@ -17,6 +17,19 @@ function App() {
   const [active, setActive] = useState<string | null>(null)
   const [meta, setMeta] = useState<RenderMeta | null>(null)
   const [dragging, setDragging] = useState(false)
+  // Persist the Pages toggle in the URL (?pages=on) so a refresh keeps it.
+  const [paginated, setPaginated] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('pages') === 'on',
+  )
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (paginated) url.searchParams.set('pages', 'on')
+    else url.searchParams.delete('pages')
+    window.history.replaceState(null, '', url)
+  }, [paginated])
 
   const pick = useCallback((src: File | string, label: string | null) => {
     setMeta(null)
@@ -78,6 +91,14 @@ function App() {
               }}
             />
           </label>
+          <button
+            type="button"
+            className={`btn${paginated ? ' is-active' : ''}`}
+            onClick={() => setPaginated((p) => !p)}
+            title="Toggle the paginated viewer (toolbar, page jump, zoom, scroll)"
+          >
+            Pages: {paginated ? 'On' : 'Off'}
+          </button>
           <span className="spacer" />
           {meta && (
             <span className="meta">
@@ -99,9 +120,10 @@ function App() {
           >
             {source ? (
               <DocViewer
-                key={typeof source === 'string' ? source : source.name}
+                key={`${typeof source === 'string' ? source : source.name}-${paginated}`}
                 className="viewer"
                 source={source}
+                pagination={paginated}
                 onLoad={setMeta}
                 loading={<div className="empty"><div className="big">Loading</div></div>}
               />

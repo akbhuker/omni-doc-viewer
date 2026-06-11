@@ -18,9 +18,18 @@ export const render: Renderer = async ({ container, bytes }) => {
     useBase64URL: true,
   })
 
+  // With breakPages, docx-preview emits one <section> per laid-out page.
+  // These are our navigable "pages"; fall back to the whole wrapper if the
+  // document didn't paginate (e.g. a single continuous section).
+  const sections = Array.from(
+    wrapper.querySelectorAll<HTMLElement>('section'),
+  )
+  const pages = sections.length > 0 ? sections : [wrapper]
+
   return {
     type: 'docx',
-    meta: { type: 'docx' },
+    meta: { type: 'docx', pageCount: pages.length },
+    pages,
     destroy() {
       container.replaceChildren()
     },
