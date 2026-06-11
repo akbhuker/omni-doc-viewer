@@ -7,6 +7,19 @@ This file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/). Do not edit it by
 hand — write good commit messages instead.
 
+## [0.1.2](https://github.com/akbhuker/omni-doc-viewer/compare/omni-doc-viewer-v0.1.1...omni-doc-viewer-v0.1.2) (2026-06-11)
+
+
+### Features
+
+* **react:** add opt-in paginated viewer with page navigation ([2ffadce](https://github.com/akbhuker/omni-doc-viewer/commit/2ffadcea125be8b7f714d7f1ecc1fe12cb611816))
+
+
+### Bug Fixes
+
+* **pptx:** render EMF/WMF metafiles and placeholder pictures ([9a0d8e9](https://github.com/akbhuker/omni-doc-viewer/commit/9a0d8e9d9005f11660f8fd2f6653c59d4975ed0a))
+* **pptx:** render EMF/WMF metafiles and placeholder pictures ([ad7353a](https://github.com/akbhuker/omni-doc-viewer/commit/ad7353a53362f53d08921ff6ff888a6c00a33253))
+
 ## [0.1.1](https://github.com/akbhuker/omni-doc-viewer/compare/omni-doc-viewer-v0.1.0...omni-doc-viewer-v0.1.1) (2026-06-10)
 
 
