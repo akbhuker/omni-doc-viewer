@@ -238,19 +238,60 @@ footer a:hover {
 }
 
 /* ---------- Mobile ---------- */
-@media (max-width: 560px) {
+@media (max-width: 640px) {
+  .wrap {
+    padding: 0 16px;
+  }
+  header {
+    padding: 18px 0 16px;
+  }
   body {
     font-size: 14px;
   }
   h1 {
     font-size: 21px;
   }
-  .dropzone {
-    min-height: 62vh;
-    padding: 8px;
+  .lede {
+    font-size: 14px;
+  }
+  .toolbar {
+    gap: 6px;
+    padding: 14px 0 12px;
   }
   .label {
     width: 100%;
-    margin-bottom: 2px;
+    margin: 0 0 2px;
+  }
+  .btn {
+    /* Comfortable touch targets (~40px tall). */
+    padding: 9px 13px;
+    font-size: 13px;
+  }
+  .spacer {
+    /* Don't push the meta onto a lonely right-aligned line; let it flow. */
+    flex-basis: 100%;
+  }
+  .meta {
+    width: 100%;
+  }
+  .dropzone {
+    min-height: 60vh;
+    padding: 8px;
+  }
+  .note {
+    margin: 16px 0 28px;
+  }
+  footer {
+    padding: 20px 0 40px;
+  }
+}
+
+@media (max-width: 380px) {
+  .toolbar .btn {
+    flex: 1 1 calc(50% - 6px);
+    text-align: center;
+  }
+  .btn.file {
+    flex-basis: 100%;
   }
 }
