@@ -70,6 +70,13 @@ export interface RenderOptions extends RenderTuning {
 export interface RenderResult {
   type: DocType
   meta: RenderMeta
+  /**
+   * The individual page elements in render order (PDF pages, PPTX slides,
+   * DOCX paginated sections). Used by the viewer to drive page-by-page
+   * navigation and the "current / total" indicator. Omitted for formats with
+   * no meaningful page model (e.g. XLSX, which navigates by sheet tabs).
+   */
+  pages?: HTMLElement[]
   destroy(): void
 }
 
