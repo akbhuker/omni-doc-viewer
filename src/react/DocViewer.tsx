@@ -97,6 +97,7 @@ export function DocViewer({
   const [current, setCurrent] = useState(1)
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode)
   const [zoom, setZoom] = useState(1)
+  const [docType, setDocType] = useState<DocType | undefined>(type)
 
   const showToolbar = toolbar ?? pagination
   const total = Math.max(pages.length, 1)
@@ -130,6 +131,7 @@ export function DocViewer({
         }
         result = r
         setPages(r.pages ?? [])
+        setDocType(r.meta.type)
         setStatus('loaded')
         onLoad?.(r.meta)
       })
@@ -239,6 +241,34 @@ export function DocViewer({
     }
   }
 
+  // Set zoom so the current page fills the available width. We need the page's
+  // NATURAL (zoom-independent) width: the rendered box scales with the CSS
+  // `zoom` we apply, so measuring it directly would be circular. A canvas
+  // (PDF) or image carries its true pixel width; otherwise fall back to the
+  // page's layout width at the current zoom.
+  const fitWidth = useCallback(() => {
+    const scroller = scrollRef.current
+    const el = pages[current - 1]
+    if (!scroller || !el) return
+    const avail = scroller.clientWidth - 36 // stage padding
+    const dpr = window.devicePixelRatio || 1
+    const canvas = el.querySelector('canvas')
+    const img = el.querySelector('img')
+    let natural = 0
+    if (canvas) natural = canvas.width / dpr
+    else if (img?.naturalWidth) natural = img.naturalWidth
+    else natural = el.getBoundingClientRect().width / zoom
+    if (natural > 0) setZoom(clampZoom(avail / natural))
+  }, [pages, current, zoom])
+
+  const handleDownload = useCallback(() => {
+    void downloadSource(source, docType)
+  }, [source, docType])
+
+  const handlePrint = useCallback(() => {
+    void printDocument(source, docType, hostRef.current, pages)
+  }, [source, docType, pages])
+
   const host = (
     <div ref={hostRef} style={{ width: '100%', opacity: status === 'loaded' ? 1 : 0 }} />
   )
@@ -311,9 +341,12 @@ export function DocViewer({
           onPrev={() => goTo(current - 1)}
           onNext={() => goTo(current + 1)}
           onJump={goTo}
-          onZoomIn={() => setZoom((z) => Math.min(MAX_ZOOM, +(z + ZOOM_STEP).toFixed(2)))}
-          onZoomOut={() => setZoom((z) => Math.max(MIN_ZOOM, +(z - ZOOM_STEP).toFixed(2)))}
+          onZoomIn={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}
+          onZoomOut={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}
           onZoomReset={() => setZoom(1)}
+          onFitWidth={fitWidth}
+          onDownload={handleDownload}
+          onPrint={handlePrint}
           onToggleMode={() =>
             setViewMode((m) => (m === 'continuous' ? 'paged' : 'continuous'))
           }
@@ -345,6 +378,9 @@ interface ToolbarProps {
   onZoomIn: () => void
   onZoomOut: () => void
   onZoomReset: () => void
+  onFitWidth: () => void
+  onDownload: () => void
+  onPrint: () => void
   onToggleMode: () => void
 }
 
@@ -360,6 +396,9 @@ function Toolbar({
   onZoomIn,
   onZoomOut,
   onZoomReset,
+  onFitWidth,
+  onDownload,
+  onPrint,
   onToggleMode,
 }: ToolbarProps): JSX.Element {
   const [draft, setDraft] = useState(String(current))
@@ -445,9 +484,42 @@ function Toolbar({
         >
           <Icon d="M12 5v14M5 12h14" />
         </button>
+        <button
+          type="button"
+          className="odv-pg-btn"
+          onClick={onFitWidth}
+          disabled={disabled}
+          aria-label="Fit width"
+          title="Fit width"
+        >
+          <Icon d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3M8 12h8M8 12l2.5-2.5M8 12l2.5 2.5M16 12l-2.5-2.5M16 12l-2.5 2.5" />
+        </button>
       </div>
 
       <span className="odv-pg-spacer" />
+
+      <div className="odv-pg-grp odv-pg-actions">
+        <button
+          type="button"
+          className="odv-pg-btn"
+          onClick={onDownload}
+          disabled={disabled}
+          aria-label="Download"
+          title="Download"
+        >
+          <Icon d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+        </button>
+        <button
+          type="button"
+          className="odv-pg-btn"
+          onClick={onPrint}
+          disabled={disabled}
+          aria-label="Print"
+          title="Print"
+        >
+          <Icon d="M6 9V3h12v6M6 18H4v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6h-2M8 14h8v7H8z" />
+        </button>
+      </div>
 
       <button
         type="button"
@@ -479,6 +551,164 @@ function Toolbar({
       </button>
     </div>
   )
+}
+
+function clampZoom(z: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, +z.toFixed(2)))
+}
+
+const DEFAULT_EXT: Partial<Record<DocType, string>> = {
+  pdf: 'pdf',
+  docx: 'docx',
+  xlsx: 'xlsx',
+  pptx: 'pptx',
+  image: 'png',
+  text: 'txt',
+  markdown: 'md',
+  csv: 'csv',
+}
+
+/** Resolve a source to a URL + filename for download/print, noting if it needs revoking. */
+async function sourceToUrl(
+  source: DocSource,
+  docType?: DocType,
+): Promise<{ url: string; filename: string; revoke: boolean }> {
+  const fallbackName = `document.${(docType && DEFAULT_EXT[docType]) || 'bin'}`
+  if (typeof source === 'string') {
+    const base = source.split(/[?#]/)[0]?.split('/').filter(Boolean).pop()
+    return { url: source, filename: base || fallbackName, revoke: false }
+  }
+  let blob: Blob
+  let filename = fallbackName
+  if (typeof File !== 'undefined' && source instanceof File) {
+    blob = source
+    if (source.name) filename = source.name
+  } else if (source instanceof Blob) {
+    blob = source
+  } else if (source instanceof Uint8Array) {
+    blob = new Blob([source.slice()])
+  } else {
+    blob = new Blob([source])
+  }
+  return { url: URL.createObjectURL(blob), filename, revoke: true }
+}
+
+/** Download the original document bytes. */
+async function downloadSource(source: DocSource, docType?: DocType): Promise<void> {
+  const { url, filename, revoke } = await sourceToUrl(source, docType)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  if (revoke) setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
+/**
+ * Print the document. PDFs are printed from the original bytes; other formats
+ * print their rendered DOM. Both use a hidden iframe (no popup window), and
+ * `@page { margin: 0 }` so the browser omits its date/URL header and footer.
+ */
+async function printDocument(
+  source: DocSource,
+  docType: DocType | undefined,
+  host: HTMLElement | null,
+  pages: HTMLElement[] = [],
+): Promise<void> {
+  if (docType === 'pdf') {
+    const { url, revoke } = await sourceToUrl(source, docType)
+    const iframe = document.createElement('iframe')
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
+    iframe.src = url
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.print()
+      } catch {
+        /* ignore cross-origin / blocked print */
+      }
+      setTimeout(() => {
+        iframe.remove()
+        if (revoke) URL.revokeObjectURL(url)
+      }, 60_000)
+    }
+    document.body.appendChild(iframe)
+    return
+  }
+
+  if (!host) return
+
+  // In paged mode the non-current pages are `display:none` in the live view —
+  // reveal them just long enough to snapshot the HTML so PRINT gets every page,
+  // then restore. Reading innerHTML is synchronous, so there's no visible flash.
+  const hidden = pages.filter((el) => el.style.display === 'none')
+  hidden.forEach((el) => (el.style.display = ''))
+  const content = host.innerHTML
+  // Largest natural (zoom-independent) page width, so we can scale to fit paper.
+  const dpr = window.devicePixelRatio || 1
+  let naturalW = 0
+  for (const el of pages.length ? pages : [host]) {
+    const c = el.querySelector?.('canvas') as HTMLCanvasElement | null
+    const i = el.querySelector?.('img') as HTMLImageElement | null
+    const w =
+      (c && c.width / dpr) ||
+      (el.style?.width && parseFloat(el.style.width)) ||
+      (i && i.naturalWidth) ||
+      el.getBoundingClientRect().width
+    naturalW = Math.max(naturalW, w || 0)
+  }
+  hidden.forEach((el) => (el.style.display = 'none'))
+
+  // Fit the widest page into the printable width (~A4 portrait minus margins).
+  const fit = naturalW > 0 ? Math.min(1, 680 / naturalW) : 1
+
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.style.cssText =
+    'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
+  document.body.appendChild(iframe)
+  const cw = iframe.contentWindow
+  if (!cw) {
+    iframe.remove()
+    return
+  }
+  const styles = Array.from(document.querySelectorAll('style[id^="odv-"]'))
+    .map((s) => s.textContent)
+    .join('\n')
+  cw.document.open()
+  cw.document.write(
+    `<!doctype html><html><head><meta charset="utf-8"><style>${styles}\n` +
+      // `@page{margin:0}` makes the browser drop its default header/footer
+      // (date, URL, page number); body padding restores readable margins.
+      `@page{margin:0}html,body{margin:0}` +
+      `body{padding:12mm;font-family:Arial,Helvetica,system-ui,sans-serif}` +
+      // Print background colors/images (slides, highlights) — browsers omit
+      // them by default.
+      `*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}` +
+      // `zoom` (not transform) so layout reflows and page breaks stay correct.
+      `.odv-print{zoom:${fit}}.odv-print .odv-pptx{display:block}` +
+      `.odv-print .pptx-preview-slide-wrapper{break-inside:avoid;page-break-inside:avoid}` +
+      `</style></head><body><div class="odv-print">${content}</div></body></html>`,
+  )
+  cw.document.close()
+  const cleanup = () => setTimeout(() => iframe.remove(), 1000)
+  let printed = false
+  const fire = () => {
+    if (printed) return
+    printed = true
+    try {
+      cw.focus()
+      cw.print()
+    } catch {
+      /* ignore */
+    }
+    cleanup()
+  }
+  cw.onafterprint = () => iframe.remove()
+  iframe.onload = fire
+  // Fallback in case `load` already fired before the handler was attached.
+  setTimeout(fire, 700)
 }
 
 /** A 24×24 stroked-path icon used by the toolbar buttons. */

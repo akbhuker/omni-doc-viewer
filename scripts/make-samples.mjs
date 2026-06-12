@@ -212,6 +212,40 @@ async function sanitizePptx(buf) {
 }
 
 // ---------------------------------------------------------------------------
+// Plain-text formats — Markdown, CSV, and an SVG image. No deps; just bytes.
+// ---------------------------------------------------------------------------
+const SAMPLE_MD = `# omni-doc-viewer
+
+A **drop-in document viewer** that runs entirely in the browser.
+
+## Features
+- PDF with a selectable, searchable text layer
+- Word, Excel, PowerPoint
+- Images, Markdown, CSV and plain text
+
+> No server. No Microsoft iframe. No API keys.
+
+| Format | Engine |
+|---|---|
+| PDF | pdf.js |
+| Markdown | marked |
+`
+
+const SAMPLE_CSV = `Name,Role,Format,Client-side
+Alice,Engineer,PDF,yes
+Bob,Designer,"Word, Excel",yes
+Carol,PM,PowerPoint,yes
+Dan,Analyst,"CSV, Markdown",yes
+`
+
+const SAMPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#0f172a"/>
+  <circle cx="320" cy="150" r="80" fill="#3b82f6"/>
+  <text x="320" y="272" font-family="system-ui, sans-serif" font-size="28" fill="#fff" text-anchor="middle">omni-doc-viewer · SVG</text>
+</svg>
+`
+
+// ---------------------------------------------------------------------------
 async function main() {
   await mkdir(OUT, { recursive: true })
   const [pdf, xlsx, docx, pptx] = await Promise.all([
@@ -224,6 +258,9 @@ async function main() {
   await writeFile(join(OUT, 'sample.xlsx'), xlsx)
   await writeFile(join(OUT, 'sample.docx'), docx)
   await writeFile(join(OUT, 'sample.pptx'), pptx)
+  await writeFile(join(OUT, 'sample.md'), SAMPLE_MD)
+  await writeFile(join(OUT, 'sample.csv'), SAMPLE_CSV)
+  await writeFile(join(OUT, 'sample.svg'), SAMPLE_SVG)
   console.log('Wrote samples to', OUT)
 }
 

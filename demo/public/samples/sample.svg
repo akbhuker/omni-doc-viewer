@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#0f172a"/>
+  <circle cx="320" cy="150" r="80" fill="#3b82f6"/>
+  <text x="320" y="272" font-family="system-ui, sans-serif" font-size="28" fill="#fff" text-anchor="middle">omni-doc-viewer · SVG</text>
+</svg>

@@ -1,7 +1,15 @@
 /**
- * The four document formats this package can render fully client-side.
+ * The document formats this package can render fully client-side.
  */
-export type DocType = 'pdf' | 'docx' | 'xlsx' | 'pptx'
+export type DocType =
+  | 'pdf'
+  | 'docx'
+  | 'xlsx'
+  | 'pptx'
+  | 'image'
+  | 'text'
+  | 'markdown'
+  | 'csv'
 
 /**
  * Anything you can hand to {@link renderDocument} as the document to display.
@@ -38,6 +46,12 @@ export interface RenderTuning {
      * cannot resolve the worker — see the README.
      */
     workerSrc?: string
+    /**
+     * Overlay a selectable, searchable text layer on each page (enables
+     * copy/paste, browser Ctrl+F, and screen-reader access). Default `true`.
+     * Set `false` for a pure-canvas render (slightly faster, image-only).
+     */
+    textLayer?: boolean
   }
   pptx?: {
     /** Slide width in px. Defaults to the container width (or 960). */
