@@ -1,0 +1,5 @@
+Name,Role,Format,Client-side
+Alice,Engineer,PDF,yes
+Bob,Designer,"Word, Excel",yes
+Carol,PM,PowerPoint,yes
+Dan,Analyst,"CSV, Markdown",yes
