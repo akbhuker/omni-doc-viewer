@@ -40,10 +40,19 @@ describe('detectFromExtension', () => {
     expect(detectFromExtension('https://x.com/My.PDF?token=1#p2')).toBe('pdf')
   })
 
+  it('maps text, image and data extensions', () => {
+    expect(detectFromExtension('a.txt')).toBe('text')
+    expect(detectFromExtension('a.md')).toBe('markdown')
+    expect(detectFromExtension('a.csv')).toBe('csv')
+    expect(detectFromExtension('a.tsv')).toBe('csv')
+    expect(detectFromExtension('a.png')).toBe('image')
+    expect(detectFromExtension('a.svg')).toBe('image')
+  })
+
   it('returns undefined for unknown/legacy extensions', () => {
     expect(detectFromExtension('a.doc')).toBeUndefined()
     expect(detectFromExtension('a.ppt')).toBeUndefined()
-    expect(detectFromExtension('a.txt')).toBeUndefined()
+    expect(detectFromExtension('a.xyz')).toBeUndefined()
   })
 })
 
@@ -78,6 +87,16 @@ describe('detectFromBytes (no filename)', () => {
     expect(() =>
       detectFromBytes(buf(OLE_SIG, PAD, utf16le('PowerPoint Document'))),
     ).toThrow(UnsupportedFormatError)
+  })
+
+  it('detects images by magic bytes', () => {
+    expect(detectFromBytes(buf([0x89, 0x50, 0x4e, 0x47]))).toBe('image') // PNG
+    expect(detectFromBytes(buf([0xff, 0xd8, 0xff, 0xe0]))).toBe('image') // JPEG
+    expect(detectFromBytes(buf([0x47, 0x49, 0x46, 0x38]))).toBe('image') // GIF
+  })
+
+  it('falls back to text for plain UTF-8 content', () => {
+    expect(detectFromBytes(buf(ascii('hello, just some plain text\n')))).toBe('text')
   })
 
   it('returns undefined for garbage', () => {

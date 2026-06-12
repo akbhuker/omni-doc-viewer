@@ -12,6 +12,10 @@ const RENDERER_LOADERS: Record<DocType, () => Promise<{ render: Renderer }>> = {
   docx: () => import('./renderers/docx'),
   xlsx: () => import('./renderers/xlsx'),
   pptx: () => import('./renderers/pptx'),
+  image: () => import('./renderers/image'),
+  text: () => import('./renderers/text'),
+  markdown: () => import('./renderers/markdown'),
+  csv: () => import('./renderers/csv'),
 }
 
 function assertBrowser(): void {

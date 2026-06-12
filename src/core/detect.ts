@@ -15,6 +15,28 @@ export function detectFromExtension(nameOrUrl: string): DocType | undefined {
       return 'xlsx'
     case 'pptx':
       return 'pptx'
+    case 'png':
+    case 'jpg':
+    case 'jpeg':
+    case 'gif':
+    case 'webp':
+    case 'bmp':
+    case 'svg':
+    case 'avif':
+    case 'ico':
+      return 'image'
+    case 'md':
+    case 'markdown':
+    case 'mdown':
+    case 'mkd':
+      return 'markdown'
+    case 'csv':
+    case 'tsv':
+      return 'csv'
+    case 'txt':
+    case 'text':
+    case 'log':
+      return 'text'
     default:
       return undefined
   }
@@ -89,6 +111,24 @@ export function detectFromBytes(bytes: Uint8Array): DocType | undefined {
   // PDF: "%PDF"
   if (startsWith(bytes, [0x25, 0x50, 0x44, 0x46])) return 'pdf'
 
+  // Raster/vector images by signature.
+  if (
+    startsWith(bytes, [0x89, 0x50, 0x4e, 0x47]) || // PNG
+    startsWith(bytes, [0xff, 0xd8, 0xff]) || // JPEG
+    startsWith(bytes, [0x47, 0x49, 0x46, 0x38]) || // GIF
+    startsWith(bytes, [0x42, 0x4d]) || // BMP
+    startsWith(bytes, [0x00, 0x00, 0x01, 0x00]) || // ICO
+    // RIFF....WEBP and ftyp...avif both have a 4-byte tag at offset 8.
+    (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && containsAscii(bytes, 'WEBP', 16)) ||
+    containsAscii(bytes, 'ftypavif', 32)
+  ) {
+    return 'image'
+  }
+  // SVG is XML text — sniff the opening tag.
+  if (containsAscii(bytes, '<svg', 1024) || containsAscii(bytes, '<?xml', 64)) {
+    if (containsAscii(bytes, '<svg', 4096)) return 'image'
+  }
+
   // ZIP-based OOXML: "PK\x03\x04" (also empty/spanned archives PK\x05\x06 / PK\x07\x08)
   const isZip =
     startsWith(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
@@ -125,7 +165,25 @@ export function detectFromBytes(bytes: Uint8Array): DocType | undefined {
     )
   }
 
+  // Last resort: if it has no binary signature and looks like UTF-8 text
+  // (no NUL bytes in the first chunk), treat it as plain text.
+  if (looksLikeText(bytes)) return 'text'
+
   return undefined
+}
+
+/** Heuristic: the first chunk is non-empty and contains no NUL/control noise. */
+function looksLikeText(bytes: Uint8Array, sample = 1024): boolean {
+  const n = Math.min(bytes.length, sample)
+  if (n === 0) return false
+  let suspicious = 0
+  for (let i = 0; i < n; i++) {
+    const b = bytes[i]!
+    if (b === 0) return false // NUL → binary
+    // Allow tab/newline/carriage-return; flag other C0 control chars.
+    if (b < 9 || (b > 13 && b < 32)) suspicious++
+  }
+  return suspicious / n < 0.05
 }
 
 /**
