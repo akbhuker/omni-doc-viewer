@@ -7,6 +7,16 @@ This file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/). Do not edit it by
 hand — write good commit messages instead.
 
+## [0.1.3](https://github.com/akbhuker/omni-doc-viewer/compare/omni-doc-viewer-v0.1.2...omni-doc-viewer-v0.1.3) (2026-06-12)
+
+
+### Features
+
+* **core:** render images, text, markdown and csv ([ef78d74](https://github.com/akbhuker/omni-doc-viewer/commit/ef78d74f2f4027be1b4e2193196e6c63d9243d8d))
+* **core:** render images, text, markdown and csv ([4eb5005](https://github.com/akbhuker/omni-doc-viewer/commit/4eb5005af797d0f698bc84be333d83c5de11b284))
+* **pdf:** add selectable text layer and virtualized rendering ([d0443e4](https://github.com/akbhuker/omni-doc-viewer/commit/d0443e4d71ac9d0e2885e1817d990a95cb500394))
+* **react:** add download, print and fit-width toolbar actions ([485705c](https://github.com/akbhuker/omni-doc-viewer/commit/485705c41478e369485cc0f5f07a7c0ebf08ca00))
+
 ## [0.1.2](https://github.com/akbhuker/omni-doc-viewer/compare/omni-doc-viewer-v0.1.1...omni-doc-viewer-v0.1.2) (2026-06-11)
 
 
