@@ -7,6 +7,32 @@ This file is maintained automatically by
 [Conventional Commits](https://www.conventionalcommits.org/). Do not edit it by
 hand — write good commit messages instead.
 
+## [0.2.0](https://github.com/akbhuker/omni-doc-viewer/compare/omni-doc-viewer-v0.1.3...omni-doc-viewer-v0.2.0) (2026-08-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **pdf:** pdfjs-dist 6 raises the browser floor to Chrome/Edge 125+, Safari 18+ and Firefox ESR 128+. Set `pdf: { legacy: true }` to load the pdfjs-dist/legacy build instead.
+
+### Features
+
+* **core:** fetch options, progress, new sources, structured errors, renderer registry ([3f5351b](https://github.com/akbhuker/omni-doc-viewer/commit/3f5351b6c880317e3367e6138ee11086dc595d6d))
+* **core:** framework-agnostic viewer controller with search, theming and thumbnails ([9d6b7b9](https://github.com/akbhuker/omni-doc-viewer/commit/9d6b7b9d2223859fb140572433aad90fcad5c6e5))
+* **core:** video, audio, sandboxed HTML, JSON and code renderers; docx options ([5ca9be3](https://github.com/akbhuker/omni-doc-viewer/commit/5ca9be3c262fed5e82270271bf0af73dbeff1a57))
+* **pdf:** pdf.js 6 with resilient worker, fonts, password, crisp zoom, rotation, links ([26fb390](https://github.com/akbhuker/omni-doc-viewer/commit/26fb3906464b55b63def8f1a2ed760d6bd256b25))
+* **react:** ref API, find bar, theming, labels, toolbar customization, password prompt ([c5d6d64](https://github.com/akbhuker/omni-doc-viewer/commit/c5d6d645592a0346dd544acfcd8c5f127f21e73a))
+
+
+### Bug Fixes
+
+* **deps:** patch runtime advisories, replace xlsx with @e965/xlsx, pin pdfjs-dist 6 ([75018db](https://github.com/akbhuker/omni-doc-viewer/commit/75018db6d048356f3c52a9e85e6fd24ec877d707))
+* **pptx:** inspect and repair decks that rendered 0 slides ([524e03d](https://github.com/akbhuker/omni-doc-viewer/commit/524e03d6181156916642dcdd3a296e620f23e279)), closes [#7](https://github.com/akbhuker/omni-doc-viewer/issues/7)
+
+
+### Performance Improvements
+
+* **table:** virtualized CSV and XLSX tables with data-set search, sniffing and row caps ([162660f](https://github.com/akbhuker/omni-doc-viewer/commit/162660f33504b08a01f450b0f34e38cfe68580d2))
+
 ## [0.1.3](https://github.com/akbhuker/omni-doc-viewer/compare/omni-doc-viewer-v0.1.2...omni-doc-viewer-v0.1.3) (2026-06-12)
 
 
