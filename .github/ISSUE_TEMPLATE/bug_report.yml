@@ -22,7 +22,9 @@ body:
         - DOCX (Word)
         - XLSX/XLS (Excel)
         - PPTX (PowerPoint)
+        - Image / Markdown / CSV / text
         - Detection (wrong/failed type)
+        - Loading (URL, auth, CORS, progress)
         - Other
     validations:
       required: true
@@ -60,7 +62,23 @@ body:
     id: console
     attributes:
       label: Console errors / stack trace
+      description: Include warnings too. If you can, pass `onWarning={(w) => console.warn(w)}` and paste what it reports.
       render: shell
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (PPTX / engine errors)
+      description: |
+        For PowerPoint problems, paste the output of `await inspectPptx(await file.arrayBuffer())` (import it from 'omni-doc-viewer'),
+        or the `details` object of the `RenderError` you received. It describes the file's structure without sharing its contents.
+      render: json
+  - type: textarea
+    id: file
+    attributes:
+      label: Sample file
+      description: |
+        Attach (drag & drop) a file that reproduces the problem — ideally a tiny one with no sensitive content.
+        If you can't share it, tell us which application produced it (PowerPoint version, Google Slides, Keynote, LibreOffice, python-pptx…).
   - type: checkboxes
     id: checks
     attributes:
