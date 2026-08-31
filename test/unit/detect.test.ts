@@ -3,8 +3,8 @@ import {
   detect,
   detectFromBytes,
   detectFromExtension,
-} from '../src/core/detect'
-import { UnsupportedFormatError, FormatDetectionError } from '../src/core/types'
+} from '../../src/core/detect'
+import { UnsupportedFormatError, FormatDetectionError } from '../../src/core/types'
 
 function ascii(s: string): number[] {
   return [...s].map((c) => c.charCodeAt(0))

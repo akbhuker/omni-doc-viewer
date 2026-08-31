@@ -1,25 +1,77 @@
 import { StrictMode, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { DocViewer, type DocType, type RenderMeta } from 'omni-doc-viewer/react'
+import { DocViewer, type DocType, type RenderMeta, type RenderWarning, type ViewerHandle } from 'omni-doc-viewer/react'
+import { useRef } from 'react'
 import './styles.css'
 
 // BASE_URL makes the samples resolve both locally and under a GitHub Pages subpath.
 const base = import.meta.env.BASE_URL
 const SAMPLES: Array<{ label: string; url: string; type?: DocType }> = [
   { label: 'PDF', url: `${base}samples/sample.pdf` },
+  { label: 'PDF (password)', url: `${base}samples/sample-protected.pdf` },
   { label: 'Word', url: `${base}samples/sample.docx` },
   { label: 'Excel', url: `${base}samples/sample.xlsx` },
   { label: 'PowerPoint', url: `${base}samples/sample.pptx` },
   { label: 'Image', url: `${base}samples/sample.svg` },
   { label: 'Markdown', url: `${base}samples/sample.md` },
   { label: 'CSV', url: `${base}samples/sample.csv` },
+  { label: 'JSON', url: `${base}samples/sample.json` },
+  { label: 'Code', url: `${base}samples/sample.ts` },
+  { label: 'HTML', url: `${base}samples/sample.html` },
+  { label: 'Text', url: `${base}samples/sample.txt` },
+  { label: 'Audio', url: `${base}samples/sample.wav` },
 ]
+
+/**
+ * The video sample is synthesized in the browser (canvas → MediaRecorder), so
+ * no binary video needs to be shipped with the demo.
+ */
+async function makeVideoSample(seconds = 3): Promise<File> {
+  const canvas = document.createElement('canvas')
+  canvas.width = 640
+  canvas.height = 360
+  const ctx = canvas.getContext('2d')!
+  const stream = canvas.captureStream(30)
+  const mime = ['video/webm;codecs=vp9', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) ?? ''
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+  const chunks: BlobPart[] = []
+  rec.ondataavailable = (e) => e.data.size && chunks.push(e.data)
+  const done = new Promise<void>((r) => (rec.onstop = () => r()))
+  rec.start(100)
+  const t0 = performance.now()
+  await new Promise<void>((resolve) => {
+    const frame = () => {
+      const t = (performance.now() - t0) / 1000
+      ctx.fillStyle = `hsl(${(t * 60) % 360} 70% 45%)`
+      ctx.fillRect(0, 0, 640, 360)
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 44px system-ui, sans-serif'
+      ctx.fillText('omni-doc-viewer', 40, 120)
+      ctx.font = '24px system-ui, sans-serif'
+      ctx.fillText(`generated in your browser · ${t.toFixed(1)}s`, 40, 170)
+      ctx.beginPath()
+      ctx.arc(320 + Math.cos(t * 3) * 120, 260 + Math.sin(t * 3) * 40, 24, 0, Math.PI * 2)
+      ctx.fill()
+      if (t < seconds) requestAnimationFrame(frame)
+      else resolve()
+    }
+    frame()
+  })
+  rec.stop()
+  await done
+  const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm'
+  return new File(chunks, `generated.${ext}`, { type: mime || 'video/webm' })
+}
 
 function App() {
   const [source, setSource] = useState<File | string | null>(null)
   const [active, setActive] = useState<string | null>(null)
   const [meta, setMeta] = useState<RenderMeta | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [dark, setDark] = useState(false)
+  const [thumbs, setThumbs] = useState(false)
+  const [warnings, setWarnings] = useState<RenderWarning[]>([])
+  const viewer = useRef<ViewerHandle>(null)
   // Persist the Pages toggle in the URL (?pages=on) so a refresh keeps it.
   const [paginated, setPaginated] = useState(
     () =>
@@ -36,6 +88,7 @@ function App() {
 
   const pick = useCallback((src: File | string, label: string | null) => {
     setMeta(null)
+    setWarnings([])
     setActive(label)
     setSource(src)
   }, [])
@@ -75,29 +128,30 @@ function App() {
 
       <main className="wrap">
         <section className="hero">
-          <span className="hero-tag reveal">[&nbsp;8&nbsp;formats&nbsp;/&nbsp;0&nbsp;servers&nbsp;]</span>
+          <span className="hero-tag reveal">[&nbsp;13&nbsp;formats&nbsp;/&nbsp;0&nbsp;servers&nbsp;]</span>
           <h1 className="display reveal">
             One viewer for
             <br />
             every document.
           </h1>
           <p className="lede reveal">
-            PDF, Word, Excel, PowerPoint, images, Markdown and CSV — rendered 100% in the
-            browser. No server, no Office iframe, no public URL, no API keys.
+            PDF, Word, Excel, PowerPoint, images, Markdown, CSV, JSON, code, HTML, video and
+            audio — rendered 100% in the browser. No server, no Office iframe, no public URL,
+            no API keys.
           </p>
 
           <dl className="datasheet reveal">
             <div>
               <dt>Formats</dt>
-              <dd>08</dd>
+              <dd>13</dd>
             </div>
             <div>
               <dt>Runtime</dt>
               <dd>Client-side</dd>
             </div>
             <div>
-              <dt>PDF text</dt>
-              <dd>Selectable</dd>
+              <dt>Search</dt>
+              <dd>Built-in</dd>
             </div>
             <div>
               <dt>Large files</dt>
@@ -126,9 +180,25 @@ function App() {
                 type="button"
                 className={`ch-toggle${paginated ? ' is-on' : ''}`}
                 onClick={() => setPaginated((p) => !p)}
-                title="Page navigation: toolbar, jump, zoom, download, print"
+                title="Page navigation: toolbar, jump, zoom, search, download, print"
               >
                 Pages <span className="state">[ {paginated ? 'on' : 'off'} ]</span>
+              </button>
+              <button
+                type="button"
+                className={`ch-toggle${thumbs ? ' is-on' : ''}`}
+                onClick={() => setThumbs((t) => !t)}
+                title="Thumbnail sidebar (with Pages on)"
+              >
+                Thumbs <span className="state">[ {thumbs ? 'on' : 'off'} ]</span>
+              </button>
+              <button
+                type="button"
+                className={`ch-toggle${dark ? ' is-on' : ''}`}
+                onClick={() => setDark((v) => !v)}
+                title="Viewer theme"
+              >
+                Dark <span className="state">[ {dark ? 'on' : 'off'} ]</span>
               </button>
             </div>
           </div>
@@ -147,12 +217,26 @@ function App() {
               </li>
             ))}
             <li>
+              <button
+                type="button"
+                className={`chip${active === 'Video' ? ' is-active' : ''}`}
+                onClick={async () => {
+                  setActive('Video')
+                  pick(await makeVideoSample(), 'Video')
+                }}
+                title="Synthesized in your browser with MediaRecorder"
+              >
+                <span className="s-num">{String(SAMPLES.length + 1).padStart(2, '0')}</span>
+                <span className="s-name">Video</span>
+              </button>
+            </li>
+            <li>
               <label className="chip chip-upload">
                 <span className="s-num">+</span>
                 <span className="s-name">Upload</span>
                 <input
                   type="file"
-                  accept=".pdf,.docx,.xlsx,.pptx,.xls,.png,.jpg,.jpeg,.gif,.webp,.svg,.bmp,.avif,.txt,.md,.markdown,.csv,.tsv,.log"
+                  accept=".pdf,.docx,.xlsx,.pptx,.xls,.png,.jpg,.jpeg,.gif,.webp,.svg,.bmp,.avif,.txt,.md,.markdown,.csv,.tsv,.log,.json,.html,.htm,.js,.ts,.tsx,.py,.xml,.yaml,.yml,.css,.sql,.sh,.mp4,.webm,.mp3,.wav,.ogg,.m4a"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
                     if (f) pick(f, null)
@@ -174,11 +258,20 @@ function App() {
             {source ? (
               <DocViewer
                 key={`${typeof source === 'string' ? source : source.name}-${paginated}`}
+                ref={viewer}
                 className="viewer"
                 source={source}
                 pagination={paginated}
+                thumbnails={thumbs}
+                theme={dark ? 'dark' : 'light'}
                 onLoad={setMeta}
-                loading={<div className="empty"><span className="empty-pulse" />Rendering…</div>}
+                onWarning={(w) => setWarnings((ws) => [...ws, w])}
+                loading={(p) => (
+                  <div className="empty">
+                    <span className="empty-pulse" />
+                    Rendering…{p?.total ? ` ${Math.round((p.loaded / p.total) * 100)}%` : ''}
+                  </div>
+                )}
               />
             ) : (
               <div className="empty">
@@ -192,9 +285,21 @@ function App() {
           </div>
         </section>
 
+        {warnings.length > 0 && (
+          <ul className="warnings reveal" aria-label="Renderer warnings">
+            {warnings.map((w, i) => (
+              <li key={i}>
+                <code>{w.code}</code> {w.message}
+              </li>
+            ))}
+          </ul>
+        )}
+
         <p className="note reveal">
-          Turn <strong>Pages</strong> on for the full viewer — navigation, zoom, fit-width,
-          download &amp; print. PowerPoint renders as a readable preview (text, shapes,
+          Turn <strong>Pages</strong> on for the full viewer — navigation, zoom, fit-width, search
+          (<kbd>Ctrl</kbd>+<kbd>F</kbd>), thumbnails, rotation, download &amp; print. The password
+          for the protected PDF sample is <code>secret</code>. The Video sample is synthesized in your
+          browser. PowerPoint renders as a readable preview (text, shapes,
           images incl. EMF/WMF), not pixel-perfect. Markdown is sanitized before rendering.
           Legacy binary <code>.doc</code> / <code>.ppt</code> aren&rsquo;t supported
           client-side.

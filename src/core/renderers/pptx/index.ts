@@ -1,4 +1,8 @@
-import { type Renderer } from '../types'
+import { RenderError, type Renderer, type RendererInput } from '../../types'
+import { rasterizeMetafile } from './metafile'
+import { createDomSearchProvider } from '../../search/dom'
+import { inspectPptx, type PptxInspection } from './inspect'
+import { sanitizePptx } from './sanitize'
 
 /**
  * PPTX rendering uses `pptx-preview` (pure front-end). Fidelity is good for
@@ -51,8 +55,12 @@ function mimeFor(name: string): string {
 interface PreparedPptx {
   /** Media keyed by full path AND basename; EMF/WMF already rasterized to PNG. */
   mediaMap: Record<string, string>
-  /** The deck bytes, possibly rewritten to fix placeholder-picture geometry. */
+  /** The deck bytes, possibly rewritten to repair the package / placeholder geometry. */
   buffer: ArrayBuffer
+  /** Structural facts about the deck (undefined if the zip could not be read). */
+  inspection?: PptxInspection
+  /** Object URLs created for media; revoke on destroy. */
+  objectUrls: string[]
 }
 
 /**
@@ -66,58 +74,74 @@ interface PreparedPptx {
  *     resolves placeholder geometry for text shapes but not for pictures, so
  *     without this such images render at 0×0 and are invisible.
  */
-async function preparePptx(bytes: Uint8Array): Promise<PreparedPptx> {
+async function preparePptx(
+  bytes: Uint8Array,
+  warn: RendererInput['warn'],
+  signal?: AbortSignal,
+): Promise<PreparedPptx> {
   const fallback = bytes.buffer.slice(
     bytes.byteOffset,
     bytes.byteOffset + bytes.byteLength,
   ) as ArrayBuffer
   const mediaMap: Record<string, string> = {}
+  const objectUrls: string[] = []
+  let inspection: PptxInspection | undefined
   try {
     const JSZip = (await import('jszip')).default
     const zip = await JSZip.loadAsync(bytes)
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+
+    // --- 0. inspect + repair the package so the engine can see every part ---
+    inspection = await inspectPptx(zip)
+    const repaired = await sanitizePptx(zip, inspection)
+    for (const w of repaired.warnings) warn(w)
+    let structureChanged = repaired.changed
 
     // --- 1. media map (with metafile conversion) ---
     const media = Object.values(zip.files).filter(
       (f: any) => !f.dir && /^ppt\/media\//i.test(f.name),
     )
-    let converter: typeof import('emf-converter') | undefined
     for (const file of media as any[]) {
       const name: string = file.name
       const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase()
       let url: string | undefined
       if (ext === 'emf' || ext === 'wmf') {
-        try {
-          converter ??= await import('emf-converter')
-          const ab: ArrayBuffer = await file.async('arraybuffer')
-          const png =
-            ext === 'emf'
-              ? await converter.convertEmfToDataUrl(ab, 2000, 2000)
-              : await converter.convertWmfToDataUrl(ab, 2000, 2000)
-          if (png) url = png
-        } catch {
-          /* Leave unset → image gets hidden rather than shown broken. */
-        }
+        // Undecodable → stays unset → image gets hidden rather than shown broken.
+        const ab: ArrayBuffer = await file.async('arraybuffer')
+        url = await rasterizeMetafile(ab, ext)
       } else {
-        url = `data:${mimeFor(name)};base64,${await file.async('base64')}`
+        // Object URLs keep large rasters off the JS heap (base64 inflates ~1.37×).
+        const data: Uint8Array = await file.async('uint8array')
+        url = URL.createObjectURL(new Blob([data.slice()], { type: mimeFor(name) }))
+        objectUrls.push(url)
       }
       if (url) {
         mediaMap[name] = url
         mediaMap[name.slice(name.lastIndexOf('/') + 1)] = url
       }
     }
-
-    // --- 2. inline inherited geometry into placeholder pictures ---
-    let buffer = fallback
-    try {
-      const changed = await patchPlaceholderPictures(zip)
-      if (changed) buffer = await zip.generateAsync({ type: 'arraybuffer' })
-    } catch {
-      /* Geometry patch is best-effort; fall back to the original bytes. */
+    // The engine would base64-encode every media part itself on load; since
+    // our patched getMedia serves them, drop them from the copy it parses.
+    if (media.length > 0) {
+      for (const file of media as any[]) zip.remove(file.name)
+      structureChanged = true
     }
 
-    return { mediaMap, buffer }
-  } catch {
-    return { mediaMap, buffer: fallback }
+    // --- 2. inline inherited geometry into placeholder pictures ---
+    try {
+      if (await patchPlaceholderPictures(zip)) structureChanged = true
+    } catch {
+      /* Geometry patch is best-effort; the deck still renders without it. */
+    }
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+
+    const buffer = structureChanged
+      ? await zip.generateAsync({ type: 'arraybuffer', compression: 'STORE' })
+      : fallback
+    return { mediaMap, buffer, inspection, objectUrls }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err
+    return { mediaMap, buffer: fallback, inspection, objectUrls }
   }
 }
 
@@ -269,7 +293,7 @@ async function patchPlaceholderPictures(zip: any): Promise<boolean> {
   return changedAny
 }
 
-export const render: Renderer = async ({ container, bytes, options }) => {
+export const render: Renderer = async ({ container, bytes, options, warn, signal }) => {
   const { init }: any = await import('pptx-preview')
 
   const host = document.createElement('div')
@@ -291,7 +315,7 @@ export const render: Renderer = async ({ container, bytes, options }) => {
 
   // Build the media map (with EMF/WMF → PNG) and a deck buffer with
   // placeholder-picture geometry inlined, in a single pass over the zip.
-  const { mediaMap, buffer: arrayBuffer } = await preparePptx(bytes)
+  const { mediaMap, buffer: arrayBuffer, inspection, objectUrls } = await preparePptx(bytes, warn, signal)
 
   // Patch the engine's getMedia so images it would otherwise miss still
   // resolve (and metafiles serve our converted PNG). We grab the prototype
@@ -329,9 +353,18 @@ export const render: Renderer = async ({ container, bytes, options }) => {
 
   try {
     await previewer.preview(arrayBuffer)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    throw new RenderError(
+      `The PowerPoint engine failed to render this deck: ${message}`,
+      'PPTX_ENGINE_ERROR',
+      'pptx',
+      { inspection, cause: err },
+    )
   } finally {
     restoreGetMedia?.()
   }
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
   // Undo the engine's black/fixed-height wrapper so all slides show stacked.
   const wrapper: HTMLElement | undefined = previewer.wrapper
@@ -346,25 +379,45 @@ export const render: Renderer = async ({ container, bytes, options }) => {
   // vector format browsers can't decode) so we never show the broken glyph.
   hideBrokenImages(host)
 
-  const pages = wrapper
+  let pages = wrapper
     ? Array.from(
         wrapper.querySelectorAll<HTMLElement>('.pptx-preview-slide-wrapper'),
       )
     : []
 
-  const slideCount =
-    typeof previewer.slideCount === 'number' ? previewer.slideCount : pages.length
+  // The engine silently yields 0 slides for structures it can't read. If we
+  // know the deck HAS slides, that's a failure — never report success with 0.
+  if (pages.length === 0 && inspection && inspection.slideOrder.length > 0) {
+    throw new RenderError(
+      `The PowerPoint engine could not read any of the ${inspection.slideOrder.length} slide(s) in this deck.`,
+      'PPTX_NO_SLIDES',
+      'pptx',
+      { inspection },
+    )
+  }
+  if (pages.length === 0) {
+    warn({ code: 'pptx/empty-deck', message: 'This presentation contains no slides.' })
+  }
+
+  if (wrapper && inspection) {
+    pages = arrangeSlides(wrapper, pages, inspection, {
+      showHidden: options.pptx?.showHiddenSlides === true,
+      warn,
+    })
+  }
 
   return {
     type: 'pptx',
-    meta: { type: 'pptx', pageCount: slideCount },
+    meta: { type: 'pptx', pageCount: pages.length },
     pages,
+    search: createDomSearchProvider({ root: host, pages }),
     destroy() {
       try {
         previewer.destroy?.()
       } catch {
         /* ignore */
       }
+      for (const url of objectUrls) URL.revokeObjectURL(url)
       container.replaceChildren()
     },
   }
@@ -388,4 +441,55 @@ function hideBrokenImages(root: HTMLElement): void {
     }
     img.addEventListener('error', () => hide(img), { once: true })
   })
+}
+
+/** Numeric suffix of a slide part (`slide12.xml` → 12) — the engine sorts by it. */
+function slideNumber(path: string): number {
+  const m = /(\d+)\.xml$/.exec(path)
+  return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER
+}
+
+/**
+ * The engine renders slides sorted by their file-name number and includes
+ * hidden ones. Re-order the rendered wrappers to the presentation's own order
+ * (`p:sldIdLst`) and drop hidden slides unless asked to show them.
+ */
+function arrangeSlides(
+  wrapper: HTMLElement,
+  pages: HTMLElement[],
+  inspection: PptxInspection,
+  opts: { showHidden: boolean; warn: RendererInput['warn'] },
+): HTMLElement[] {
+  // Which part does each rendered wrapper correspond to? Mirror the engine's
+  // enumeration (Override entries sorted by number). Only trust the mapping
+  // when the counts agree.
+  const engineParts = [...inspection.slideParts].sort((a, b) => slideNumber(a) - slideNumber(b))
+  if (engineParts.length !== pages.length) {
+    if (inspection.hiddenSlides.length || inspection.slideOrder.length) {
+      opts.warn({
+        code: 'pptx/slide-order-unknown',
+        message: 'Could not map rendered slides to the presentation order; showing them in engine order.',
+        details: { rendered: pages.length, declared: engineParts.length },
+      })
+    }
+    return pages
+  }
+  const byPart = new Map<string, HTMLElement>()
+  engineParts.forEach((part, i) => byPart.set(part, pages[i]!))
+
+  const ordered: string[] = [...inspection.slideOrder.filter((p) => byPart.has(p))]
+  for (const part of engineParts) if (!ordered.includes(part)) ordered.push(part)
+
+  const hidden = new Set(inspection.hiddenSlides)
+  const kept: HTMLElement[] = []
+  for (const part of ordered) {
+    const el = byPart.get(part)!
+    if (!opts.showHidden && hidden.has(part)) {
+      el.remove()
+      continue
+    }
+    wrapper.appendChild(el) // appending re-orders in place
+    kept.push(el)
+  }
+  return kept
 }

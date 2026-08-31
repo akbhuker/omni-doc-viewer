@@ -1,4 +1,5 @@
 import { type Renderer } from '../types'
+import { createDomSearchProvider } from '../search/dom'
 
 /** Decode bytes as UTF-8, tolerating a BOM and invalid sequences. */
 export function decodeText(bytes: Uint8Array): string {
@@ -22,13 +23,14 @@ export const render: Renderer = async ({ container, bytes }) => {
     'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
   pre.style.fontSize = '13px'
   pre.style.lineHeight = '1.6'
-  pre.style.color = '#1d1d1f'
+  pre.style.color = 'var(--odv-fg, #1d1d1f)'
   pre.style.tabSize = '4'
   container.appendChild(pre)
 
   return {
     type: 'text',
     meta: { type: 'text' },
+    search: createDomSearchProvider({ root: pre }),
     destroy() {
       container.replaceChildren()
     },

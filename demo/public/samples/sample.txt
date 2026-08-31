@@ -1,0 +1,9 @@
+omni-doc-viewer — plain text sample
+
+Plain text, logs and any UTF-8 file render in a wrapped <pre>.
+Long lines soft-wrap so nothing scrolls horizontally, and the text is
+selectable, copyable and searchable (Ctrl+F in the viewer).
+
+  1. one
+  2. two
+  3. three

@@ -1,22 +1,16 @@
 import { detect } from './detect'
+import { detectionRegistry, resolveRendererLoader } from './registry'
 import { normalizeSource } from './source'
-import { type DocType, type Renderer, type RenderOptions, type RenderResult } from './types'
-
-/**
- * Lazy per-format loaders. Each renderer (and its heavy engine) is only
- * imported the first time that format is actually rendered, so a consumer who
- * only ever shows PDFs never ships the SheetJS or PPTX code.
- */
-const RENDERER_LOADERS: Record<DocType, () => Promise<{ render: Renderer }>> = {
-  pdf: () => import('./renderers/pdf'),
-  docx: () => import('./renderers/docx'),
-  xlsx: () => import('./renderers/xlsx'),
-  pptx: () => import('./renderers/pptx'),
-  image: () => import('./renderers/image'),
-  text: () => import('./renderers/text'),
-  markdown: () => import('./renderers/markdown'),
-  csv: () => import('./renderers/csv'),
-}
+import { setStyleNonce } from './styles'
+import { applyTheme } from './theme'
+import {
+  type AnyDocType,
+  FormatDetectionError,
+  type RenderOptions,
+  type RenderResult,
+  type RenderWarning,
+  UnsupportedFormatError,
+} from './types'
 
 function assertBrowser(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -40,22 +34,48 @@ function assertBrowser(): void {
  * view.destroy()
  */
 export async function renderDocument(options: RenderOptions): Promise<RenderResult> {
-  const { container, source, type, signal, onError } = options
+  const { container, source, type, signal, onError, fetchOptions, onProgress } = options
   try {
     assertBrowser()
     if (!container) throw new Error('`container` is required.')
+    if (options.styleNonce) setStyleNonce(options.styleNonce)
+    if (options.theme) applyTheme(container, options.theme)
 
-    const { bytes, filename } = await normalizeSource(source, signal)
+    const { bytes, filename, mime } = await normalizeSource(source, {
+      signal,
+      fetchOptions,
+      onProgress,
+    })
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
-    const docType = detect({ bytes, filename, override: type })
-    const { render } = await RENDERER_LOADERS[docType]()
+    let docType: AnyDocType
+    let renderers = options.renderers
+    try {
+      docType = detect({ bytes, filename, mime, override: type, registry: detectionRegistry(renderers) })
+    } catch (err) {
+      if (!(err instanceof FormatDetectionError) || options.fallback === undefined) throw err
+      if (typeof options.fallback === 'function') {
+        renderers = { ...renderers, __fallback: options.fallback }
+        docType = '__fallback'
+      } else docType = options.fallback
+    }
+    const loader = resolveRendererLoader(docType, renderers)
+    if (!loader) {
+      throw new UnsupportedFormatError(`No renderer is registered for type "${docType}".`, docType)
+    }
+    const { render } = await loader()
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
     // Clear any previous content before drawing.
     container.replaceChildren()
 
-    return await render({ container, bytes, options, signal })
+    const warn = (w: Omit<RenderWarning, 'format'> & { format?: AnyDocType }): void => {
+      options.onWarning?.({ ...w, format: w.format ?? docType })
+    }
+    const result = await render({ container, bytes, type: docType, filename, mime, options, signal, warn })
+    // Keep the rendered bytes on the handle so download/print never need to
+    // re-fetch (or hit cross-origin restrictions on the original URL).
+    return Object.assign(result, { bytes, filename })
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err))
     onError?.(error)

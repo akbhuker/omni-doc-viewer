@@ -569,3 +569,7 @@ a {
     width: 100%;
   }
 }
+
+.warnings{margin:16px 0 0;padding:12px 16px;list-style:none;border:1px solid #f1d38a;background:#fff8e6;border-radius:8px;font-size:13px;line-height:1.5}
+.warnings li+li{margin-top:4px}
+.warnings code{font-size:12px;background:#fdecc4;padding:1px 5px;border-radius:4px;margin-right:6px}

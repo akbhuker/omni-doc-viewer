@@ -1,18 +1,30 @@
 omni-doc-viewer
 Copyright (c) 2026 omni-doc-viewer contributors
 
-This product bundles / depends on the following third-party rendering engines,
-each under its own license. omni-doc-viewer itself is MIT-licensed; it wraps
-these engines behind a unified API and does not modify them.
+This product depends on the following third-party rendering engines and
+libraries, each under its own license. omni-doc-viewer itself is MIT-licensed;
+it wraps these engines behind a unified API and does not modify them.
 
 - pdfjs-dist (Mozilla pdf.js) — Apache License 2.0
     https://github.com/mozilla/pdf.js
 - docx-preview — Apache License 2.0
     https://github.com/VolodymyrBaydalka/docxjs
-- xlsx (SheetJS Community Edition) — Apache License 2.0
+- @e965/xlsx (SheetJS Community Edition 0.20.x, unmodified republish of the
+  official SheetJS release to the npm registry) — Apache License 2.0
     https://github.com/SheetJS/sheetjs
-- pptx-preview — ISC License
+    https://github.com/e965/sheetjs-npm-publisher
+- pptx-preview — ISC License (package.json). The author's README restricts
+  redistribution of the *source code*; omni-doc-viewer consumes only the
+  published npm distribution, unmodified.
     https://www.npmjs.com/package/pptx-preview
+- emf-converter — Apache License 2.0
+    https://github.com/ChristopherVR/emf-converter
+- jszip — MIT License (dual MIT/GPL-3.0)
+    https://github.com/Stuk/jszip
+- marked — MIT License
+    https://github.com/markedjs/marked
+- DOMPurify — Apache License 2.0 (dual Apache-2.0/MPL-2.0)
+    https://github.com/cure53/DOMPurify
 
 Full license texts are available in each package's distribution under
 node_modules/<package>/.
