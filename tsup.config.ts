@@ -18,7 +18,7 @@ export default defineConfig({
     'react-dom',
     'pdfjs-dist',
     'docx-preview',
-    'xlsx',
+    '@e965/xlsx',
     'pptx-preview',
   ],
 })

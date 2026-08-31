@@ -5,3 +5,5 @@ dist
 .turbo
 coverage
 demo/dist
+test/fixtures/generated
+.playwright-mcp
