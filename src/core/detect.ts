@@ -1,4 +1,6 @@
-import { type DocType, UnsupportedFormatError, FormatDetectionError } from './types'
+import { type AnyDocType, type DocType, UnsupportedFormatError, FormatDetectionError } from './types'
+import { docTypeFromMime } from './mime'
+import { detectionRegistry, type DetectionRegistry } from './registry'
 
 /** Map a file extension to a DocType. Returns undefined for unknown/legacy. */
 export function detectFromExtension(nameOrUrl: string): DocType | undefined {
@@ -37,10 +39,42 @@ export function detectFromExtension(nameOrUrl: string): DocType | undefined {
     case 'text':
     case 'log':
       return 'text'
+    case 'mp4':
+    case 'm4v':
+    case 'webm':
+    case 'mov':
+    case 'ogv':
+      return 'video'
+    case 'mp3':
+    case 'wav':
+    case 'ogg':
+    case 'oga':
+    case 'm4a':
+    case 'aac':
+    case 'flac':
+    case 'opus':
+      return 'audio'
+    case 'html':
+    case 'htm':
+    case 'xhtml':
+      return 'html'
+    case 'json':
+    case 'jsonl':
+    case 'geojson':
+      return 'json'
     default:
-      return undefined
+      return CODE_EXTENSIONS.has(ext) ? 'code' : undefined
   }
 }
+
+/** Source-code extensions rendered with line numbers. */
+export const CODE_EXTENSIONS = new Set([
+  'js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'mts', 'cts', 'py', 'rb', 'php', 'java', 'kt', 'kts', 'scala',
+  'go', 'rs', 'c', 'h', 'cpp', 'cc', 'hpp', 'cs', 'swift', 'm', 'dart', 'lua', 'r', 'pl', 'pm',
+  'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd', 'sql', 'graphql', 'gql', 'proto',
+  'css', 'scss', 'sass', 'less', 'xml', 'xsl', 'xsd', 'svg-src', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'env',
+  'dockerfile', 'makefile', 'gradle', 'properties', 'tex', 'vue', 'svelte', 'astro', 'diff', 'patch',
+])
 
 const ZIP_INTERNAL_MARKERS: Array<{ marker: string; type: DocType }> = [
   { marker: 'word/', type: 'docx' },
@@ -124,9 +158,22 @@ export function detectFromBytes(bytes: Uint8Array): DocType | undefined {
   ) {
     return 'image'
   }
+  // Media containers.
+  if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return 'video' // EBML (webm/mkv)
+  if (containsAscii(bytes, 'ftyp', 12)) {
+    if (containsAscii(bytes, 'ftypM4A', 12)) return 'audio'
+    return 'video' // isom / mp42 / M4V / qt …
+  }
+  if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && containsAscii(bytes, 'WAVE', 16)) return 'audio'
+  if (containsAscii(bytes, 'OggS', 4)) return 'audio'
+  if (startsWith(bytes, [0x49, 0x44, 0x33])) return 'audio' // ID3 (mp3)
+  if (bytes.length > 1 && bytes[0] === 0xff && (bytes[1]! & 0xe6) === 0xe2) return 'audio' // MPEG frame sync
+  if (startsWith(bytes, [0x66, 0x4c, 0x61, 0x43])) return 'audio' // fLaC
+
   // SVG is XML text — sniff the opening tag.
   if (containsAscii(bytes, '<svg', 1024) || containsAscii(bytes, '<?xml', 64)) {
     if (containsAscii(bytes, '<svg', 4096)) return 'image'
+    if (containsAscii(bytes, '<?xml', 64)) return 'code' // generic XML
   }
 
   // ZIP-based OOXML: "PK\x03\x04" (also empty/spanned archives PK\x05\x06 / PK\x07\x08)
@@ -166,10 +213,27 @@ export function detectFromBytes(bytes: Uint8Array): DocType | undefined {
   }
 
   // Last resort: if it has no binary signature and looks like UTF-8 text
-  // (no NUL bytes in the first chunk), treat it as plain text.
-  if (looksLikeText(bytes)) return 'text'
+  // (no NUL bytes in the first chunk), treat it as html / json / plain text.
+  if (looksLikeText(bytes)) {
+    const head = new TextDecoder('utf-8', { fatal: false }).decode(bytes.subarray(0, 2048)).trimStart()
+    if (/^(<!doctype\s+html|<html[\s>]|<head[\s>]|<body[\s>])/i.test(head)) return 'html'
+    const first = head[0]
+    if ((first === '{' || first === '[') && looksLikeJson(bytes)) return 'json'
+    return 'text'
+  }
 
   return undefined
+}
+
+/** True when the (bounded) text parses as JSON. */
+function looksLikeJson(bytes: Uint8Array, limit = 5 * 1024 * 1024): boolean {
+  if (bytes.length > limit) return false
+  try {
+    JSON.parse(new TextDecoder('utf-8', { fatal: false }).decode(bytes))
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Heuristic: the first chunk is non-empty and contains no NUL/control noise. */
@@ -190,7 +254,8 @@ function looksLikeText(bytes: Uint8Array, sample = 1024): boolean {
  * Resolve the format of a document from (in priority order):
  *   1. an explicit `override`,
  *   2. the filename/URL extension,
- *   3. the magic bytes.
+ *   3. a MIME type hint (Content-Type / data: URL), if specific,
+ *   4. the magic bytes.
  *
  * @throws {UnsupportedFormatError} for legacy `.doc`/`.ppt`.
  * @throws {FormatDetectionError} when the format cannot be determined.
@@ -198,12 +263,20 @@ function looksLikeText(bytes: Uint8Array, sample = 1024): boolean {
 export function detect(params: {
   bytes: Uint8Array
   filename?: string
-  override?: DocType
-}): DocType {
-  const { bytes, filename, override } = params
+  mime?: string
+  override?: AnyDocType
+  /** Rules from registered renderers (defaults to the global registry). */
+  registry?: DetectionRegistry
+}): AnyDocType {
+  const { bytes, filename, mime, override } = params
   if (override) return override
+  const registry = params.registry ?? detectionRegistry()
 
   if (filename) {
+    const clean = filename.split(/[?#]/)[0] ?? ''
+    const ext = clean.slice(clean.lastIndexOf('.') + 1).toLowerCase()
+    const registered = ext ? registry.extensions.get(ext) : undefined
+    if (registered) return registered
     const byExt = detectFromExtension(filename)
     if (byExt) {
       // Trust the extension, but if it's a zip we can still confirm; if the
@@ -219,6 +292,20 @@ export function detect(params: {
     }
     // Extension was .doc/.ppt or unknown — fall through to bytes, which will
     // throw the precise unsupported error if applicable.
+  }
+
+  const essence = mime?.split(';')[0]?.trim().toLowerCase()
+  const registeredMime = essence ? registry.mimeTypes.get(essence) : undefined
+  if (registeredMime) return registeredMime
+  const byMime = docTypeFromMime(mime)
+  if (byMime) return byMime
+
+  for (const { type, sniff } of registry.sniffers) {
+    try {
+      if (sniff(bytes)) return type
+    } catch {
+      /* a broken sniffer must not break detection */
+    }
   }
 
   const byBytes = detectFromBytes(bytes)
