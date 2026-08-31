@@ -37,7 +37,7 @@ export const render: Renderer = async ({ container, bytes }) => {
   img.alt = 'Image document'
   img.style.maxWidth = '100%'
   img.style.height = 'auto'
-  img.style.boxShadow = '0 1px 4px rgba(0,0,0,0.18)'
+  img.style.boxShadow = 'var(--odv-page-shadow, 0 1px 4px rgba(0,0,0,0.18))'
   wrapper.appendChild(img)
   container.appendChild(wrapper)
 

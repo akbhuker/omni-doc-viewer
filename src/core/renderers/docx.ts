@@ -1,8 +1,23 @@
 import { type Renderer } from '../types'
+import { createDomSearchProvider } from '../search/dom'
+import { ensureStyles } from '../styles'
 
-export const render: Renderer = async ({ container, bytes }) => {
+/**
+ * docx-preview ships a grey, padded wrapper meant for standalone use; inside
+ * our stage it shows as a grey band and its pages lack our page styling.
+ */
+const DOCX_CSS = `
+.odv-docx .odv-docx-content-wrapper,.odv-docx .docx-wrapper{background:transparent!important;padding:0!important;
+  display:flex;flex-flow:column;align-items:center;gap:14px}
+.odv-docx .odv-docx-content-wrapper>section,.odv-docx .docx-wrapper>section{margin-bottom:0!important;
+  background:var(--odv-page-bg,#fff)!important;box-shadow:var(--odv-page-shadow,0 1px 4px rgba(0,0,0,.18))!important;
+  flex:0 0 auto;max-width:100%;box-sizing:border-box}
+`
+
+export const render: Renderer = async ({ container, bytes, options }) => {
   const { renderAsync }: any = await import('docx-preview')
 
+  ensureStyles('odv-docx-styles', DOCX_CSS)
   const wrapper = document.createElement('div')
   wrapper.className = 'odv-docx'
   container.appendChild(wrapper)
@@ -16,6 +31,8 @@ export const render: Renderer = async ({ container, bytes }) => {
     breakPages: true,
     experimental: true,
     useBase64URL: true,
+    // Consumer overrides (headers/footers/comments/changes/page breaks…).
+    ...options.docx,
   })
 
   // With breakPages, docx-preview emits one <section> per laid-out page.
@@ -30,6 +47,7 @@ export const render: Renderer = async ({ container, bytes }) => {
     type: 'docx',
     meta: { type: 'docx', pageCount: pages.length },
     pages,
+    search: createDomSearchProvider({ root: wrapper, pages }),
     destroy() {
       container.replaceChildren()
     },
